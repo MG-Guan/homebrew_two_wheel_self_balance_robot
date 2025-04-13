@@ -37,8 +37,8 @@
           <div class="mb-3">
             <label class="form-label">Mode</label>
             <select class="form-select" id="mode">
-              <option value="0">PID Mode</option>
-              <option value="1">Other Mode</option>
+              <option value="0">Stop Mode</option>
+              <option value="1">Work Mode</option>
             </select>
           </div>
 
@@ -76,39 +76,36 @@
   const esp32_ip = "192.168.4.1"; // Replace with actual IP if needed
 
   function sendParams() {
-    const params = {
-      target: document.getElementById("target").value,
-      fps: document.getElementById("fps").value,
-      alpha: document.getElementById("alpha").value,
-      max_value: document.getElementById("max_value").value,
-      kp: document.getElementById("kp").value,
-      ki: document.getElementById("ki").value,
-      kd: document.getElementById("kd").value,
-      mode: document.getElementById("mode").value,
-    };
+  const params = {
+    target: document.getElementById("target").value,
+    fps: document.getElementById("fps").value,
+    alpha: document.getElementById("alpha").value,
+    max_value: document.getElementById("max_value").value,
+    kp: document.getElementById("kp").value,
+    ki: document.getElementById("ki").value,
+    kd: document.getElementById("kd").value,
+    mode: document.getElementById("mode").value,
+  };
 
-    const queryString = Object.entries(params)
-      .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
-      .join("&");
+  const queryString = Object.entries(params)
+    .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+    .join("&");
 
-    const url = `http://${esp32_ip}/set?${queryString}`;
-    fetch(url)
-      .then(response => response.text())
-      .then(data => alert("✅ Sent: " + data))
-      .catch(error => alert("❌ Error: " + error));
-  }
+  const url = `http://${esp32_ip}/set?${queryString}`;
+  fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error("HTTP error " + response.status);
+      return response.text();
+    })
+    .then(data => {
+      document.getElementById("statusMessage").innerText = data;  
+    })
+    .catch(error => {
+      document.getElementById("statusMessage").innerText = "Error setting parameters.";
+      console.error("Fetch failed:", error);
+    });
+}
 
-  // Fetch PWM every second
-  setInterval(() => {
-    fetch(`http://${esp32_ip}/motor`)
-      .then(res => res.text())
-      .then(val => {
-        document.getElementById("pwm_display").innerText = val;
-      })
-      .catch(err => {
-        document.getElementById("pwm_display").innerText = "---";
-      });
-  }, 1000);
 </script>
 
 </body>
