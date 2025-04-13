@@ -13,6 +13,7 @@
   <h2 class="text-center mb-4">🤖 Robot Brain Control Dashboard</h2>
 
   <div class="row g-4">
+    <!-- Left Column: Parameters Section -->
     <div class="col-md-6">
       <div class="card shadow-sm">
         <div class="card-body">
@@ -46,6 +47,7 @@
       </div>
     </div>
 
+    <!-- Right Column: PID Tuning Section -->
     <div class="col-md-6">
       <div class="card shadow-sm">
         <div class="card-body">
@@ -72,40 +74,37 @@
 
 </div>
 
+<!-- JavaScript Section -->
 <script>
-  const esp32_ip = "192.168.4.1"; // Replace with actual IP if needed
+  // IP address of the ESP32 device
+  const esp32_ip = "192.168.4.1"; 
 
+  // Function to collect parameters and send them to ESP32
   function sendParams() {
-  const params = {
-    target: document.getElementById("target").value,
-    fps: document.getElementById("fps").value,
-    alpha: document.getElementById("alpha").value,
-    max_value: document.getElementById("max_value").value,
-    kp: document.getElementById("kp").value,
-    ki: document.getElementById("ki").value,
-    kd: document.getElementById("kd").value,
-    mode: document.getElementById("mode").value,
-  };
+    // Collect values from form fields
+    const params = {
+      target: document.getElementById("target").value,
+      fps: document.getElementById("fps").value,
+      alpha: document.getElementById("alpha").value,
+      max_value: document.getElementById("max_value").value,
+      kp: document.getElementById("kp").value,
+      ki: document.getElementById("ki").value,
+      kd: document.getElementById("kd").value,
+      mode: document.getElementById("mode").value,
+    };
 
-  const queryString = Object.entries(params)
-    .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
-    .join("&");
+    // Construct URL query string
+    const queryString = Object.entries(params)
+      .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
+      .join("&");
 
-  const url = `http://${esp32_ip}/set?${queryString}`;
-  fetch(url)
-    .then(response => {
-      if (!response.ok) throw new Error("HTTP error " + response.status);
-      return response.text();
-    })
-    .then(data => {
-      document.getElementById("statusMessage").innerText = data;  
-    })
-    .catch(error => {
-      document.getElementById("statusMessage").innerText = "Error setting parameters.";
+    const url = `http://${esp32_ip}/set?${queryString}`;
+
+    // Send GET request without handling response
+    fetch(url).catch(error => {
       console.error("Fetch failed:", error);
     });
-}
-
+  }
 </script>
 
 </body>
