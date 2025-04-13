@@ -9,11 +9,9 @@ Compile and upload the code to the ESP32 sensor board with IMU.
 #include <Wire.h>
 
 #include "robot_brain.h"
+#include "ssid.h"
 
 // Global variables for web server.
-const char* ssid = "ESP32-Access-Point-SEP783_P3G2";
-const char* password = "jian_leo";
-int port = 80;
 AsyncWebServer server(port);
 
 // Global robot brain object.
