@@ -37,11 +37,8 @@ void setup() {
 
   // Service to get the control signal.
   server.on("/motor", HTTP_GET, [](AsyncWebServerRequest *request) {
-    float control_pwm = robot_brain.safe_getLastControlSignal();
-    // String json_response = "{\"pwm\": " + String(control_pwm) + "}";
-    String control_pwm_str = String(control_pwm);
-    request->send(200, "text/plain", control_pwm_str);
-    // Serial.println(control_pwm_str);
+    int control_signal = robot_brain.safe_getLastControlSignal();
+    request->send(200, "text/plain", String(control_signal));
   });
 
   // Service to set the target or params.
@@ -69,6 +66,9 @@ void setup() {
       } 
       if (request->hasParam("max_value")) {
         params.max_value = request->getParam("max_value")->value().toFloat();
+      }
+      if (request->hasParam("max_neg_value")) {
+        params.max_neg_value = request->getParam("max_neg_value")->value().toFloat();
       }
       if (request->hasParam("kp")) {
         params.kp = request->getParam("kp")->value().toFloat();

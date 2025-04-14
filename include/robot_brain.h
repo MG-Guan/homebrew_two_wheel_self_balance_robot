@@ -18,9 +18,10 @@ struct SensorData {
 };
 
 struct Parameters {
-    int mode = 0; // Mode of operation, 0 for stop, 1 for run.
+    int mode = 0; // Mode of operation, 0 for stop, 1 for work, 2 for debug.
     float fps = 50.0; // Frames per second to update robot brain
-    float max_value = 255.0; // Maximum control signal value
+    int max_value = 10.0; // Maximum control signal value
+    int max_neg_value = 10.0; // Maximum negative control signal value
     float alpha = 0.01; // Alpha value for gain to control signal conversion
     float kp = 0.1; // PID controller proportional gain.
     float ki = 0.1; // PID controller integral gain.
@@ -58,15 +59,13 @@ public:
 
     const SensorData& getSensorData() {
         float ax = 0.0, ay = 0.0, az = 0.0;
-        float roll = 0.0;
 
         _sensor_data.is_new_data = false; // Reset the flag
 
         if (IMU.accelerationAvailable()) {
             float current_time = millis() * 1e-3; // Convert to seconds
             IMU.readAcceleration(ax, ay, az);
-            roll = atan2(-ay, sqrt(pow(az, 2) + pow(ax, 2)));  // In rad.
-            float roll_deg = roll / M_PI * 180.0; // Convert to degrees 
+            float roll_deg = atan2(ay, az) / M_PI * 180.0;  // In degrees.
             float delta_t = current_time - _last_sensor_time;
 
             _sensor_data.delta_t = delta_t;
@@ -78,29 +77,37 @@ public:
         return _sensor_data;
     }
 
-    // Convert gain to control signal in range [-max_value, max_value].
-    double gainToControl(float gain, float alpha, float max_value) {
+    // Convert gain to control signal in range [-max_neg_value, max_value].
+    int gainToControl(float gain, float alpha, int max_value, int max_neg_value) {
         float norm_gain = tanh(gain * alpha);  // Normalize gain to [-1.0, 1.0].
-        return norm_gain * max_value;
+        if (norm_gain > 0) {
+            return int(norm_gain * max_value);
+        } else if (norm_gain < 0.0) {
+            return int(norm_gain * max_neg_value);
+        } else {
+            return 0.0;
+        }
     }
 
     // Get control signal based on target value, PID gain, and max value.
-    double getControlSignal(double target, double alpha, double max_value) {
+    int getControlSignal(double target, double alpha, int max_value, int max_neg_value) {
+        SensorData sensor_data;
         Parameters params = safe_getParam();
         if (params.mode == 0) {
             Serial.println("Stop mode");
             return 0.0; // Stop mode, return 0.
+        } else if (params.mode == 2) { // Debug mode.
+            sensor_data = getNextMockSensorData();
+        } else { // Work mode.
+            sensor_data = getSensorData();
         }
 
-        const SensorData& sensor_data = getSensorData();
-
-        float pid_gain = 0.0;
-        float delta_t = 1e-4; // Default delta_t to avoid division by zero.
-        if (!sensor_data.is_new_data) {
-            delta_t = sensor_data.delta_t;
-        }
-        pid_gain = _pid.compute(target, sensor_data.roll_deg, delta_t, params.kp, params.ki, params.kd);
-        float control_signal = gainToControl(pid_gain, alpha, max_value);
+        // float delta_t = 1e-2; // Default delta_t to avoid division by zero.
+        // if (!sensor_data.is_new_data) {
+        //     delta_t = sensor_data.delta_t;
+        // }
+        float pid_gain = _pid.compute(target, sensor_data.roll_deg, sensor_data.delta_t, params.kp, params.ki, params.kd);
+        int control_signal = gainToControl(pid_gain, alpha, max_value, max_neg_value);
         Serial.print(sensor_data.roll_deg);
         Serial.print(",");
         Serial.print(sensor_data.delta_t);
@@ -112,8 +119,8 @@ public:
     }
 
     // Get the last control signal with mutex lock.
-    float safe_getLastControlSignal() {
-        float control_signal = 0.0;
+    int safe_getLastControlSignal() {
+        int control_signal = 0;
         if(xSemaphoreTake(_control_signal_mutex, portMAX_DELAY)) {
              control_signal = _control_signal;
             xSemaphoreGive(_control_signal_mutex);
@@ -122,7 +129,7 @@ public:
     }
 
     // Set the control signal with mutex lock.
-    float safe_setControlSignal(float control_signal) {
+    int safe_setControlSignal(int control_signal) {
         if(xSemaphoreTake(_control_signal_mutex, portMAX_DELAY)) {
             _control_signal = control_signal;
             xSemaphoreGive(_control_signal_mutex);
@@ -162,12 +169,23 @@ public:
         }
     }
 
+    SensorData getNextMockSensorData() {
+        SensorData sensor_data;
+        sensor_data.is_new_data = true;
+        sensor_data.roll_deg = sin(_mock_roll_idx++) * _mock_max_roll; // Mock roll value.
+        sensor_data.delta_t = 0.02; // Mock delta time.
+        if (_mock_roll_idx > 100) {
+            _mock_roll_idx = 0;
+        }
+        return sensor_data;
+    }
+
     void step() {
         float target = safe_getTarget();
         Parameters params = safe_getParam();
 
         // Get the control signal based on the target value and parameters.
-        float control_signal = getControlSignal(target, params.alpha, params.max_value);
+        int control_signal = getControlSignal(target, params.alpha, params.max_value, params.max_neg_value);
 
         // Set the control signal.
         safe_setControlSignal(control_signal);
@@ -184,7 +202,7 @@ private:
     SensorData _sensor_data;  // Stores the last sensor data.
 
     // Control signal variables (PWM with sign).
-    float _control_signal = 0.0; // Control signal.
+    int _control_signal = 0.0; // Control signal.
     SemaphoreHandle_t _control_signal_mutex; // Mutex for control signal access.
 
     // The target value for the PID controller.
@@ -195,6 +213,10 @@ private:
     Parameters _params; // Parameters for the robot brain.
     PIDController _pid;
     SemaphoreHandle_t _params_mutex; // Mutex for parameters and pid access.
+
+    // Debug variables.
+    float _mock_max_roll = 20.0; // Mock roll value for testing.
+    int _mock_roll_idx = 0;
 };
 
 #endif // ROBOT_BRAIN_H

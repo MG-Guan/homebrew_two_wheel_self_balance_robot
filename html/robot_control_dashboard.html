@@ -1,0 +1,202 @@
+<!DOCTYPE html>  
+<html lang="en">  
+<head>  
+  <meta charset="UTF-8">  
+  <title>Robot Control Dashboard</title>  
+  <meta name="viewport" content="width=device-width, initial-scale=1">  
+  <!-- Bootstrap 5 CDN -->  
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">  
+</head>  
+<body class="bg-light">  
+
+<div class="container py-5">  
+  <h2 class="text-center mb-4">🤖 Robot Brain Control Dashboard</h2>  
+
+  <div class="row g-4">  
+    <!-- Left Column: Parameters Section -->  
+    <div class="col-md-6">  
+      <div class="card shadow-sm">  
+        <div class="card-body">  
+          <h5 class="card-title">🔧 Parameters</h5>  
+
+          <!-- Server IP Configuration -->  
+          <div class="mb-3">  
+            <label class="form-label">Server IP</label>  
+            <input type="text" class="form-control" id="server_ip" value="192.168.4.1" onchange="autoSendIfEnabled()">  
+          </div>  
+
+          <!-- "Auto Send" Switch -->  
+          <div class="form-check form-switch mb-3">  
+            <input class="form-check-input" type="checkbox" id="auto_send" onchange="toggleAutoSend()">  
+            <label class="form-check-label" for="auto_send">Enable Auto Send</label>  
+          </div>  
+
+          <!-- Parameter Configuration -->  
+          <div class="mb-3">  
+            <label class="form-label">Target</label>  
+            <input type="number" class="form-control" id="target" value="0.0" onchange="autoSendIfEnabled()">  
+          </div>  
+          <div class="mb-3">  
+            <label class="form-label">FPS</label>  
+            <input type="number" class="form-control" id="fps" value="10" onchange="autoSendIfEnabled()">  
+          </div>  
+          <div class="mb-3">  
+            <label class="form-label">Alpha</label>  
+            <input type="number" class="form-control" id="alpha" value="0.001" step="0.0001" onchange="autoSendIfEnabled()">  
+          </div>  
+          <div class="mb-3">  
+            <label class="form-label">Max Value</label>  
+            <input type="number" class="form-control" id="max_value" value="10" onchange="autoSendIfEnabled()">  
+          </div>  
+          <div class="mb-3">  
+            <label class="form-label">Max Neg Value</label>  
+            <input type="number" class="form-control" id="max_neg_value" value="10" onchange="autoSendIfEnabled()">  
+          </div>  
+          <div class="mb-3">  
+            <label class="form-label">Mode</label>  
+            <div class="d-flex align-items-center mb-3">  
+              <!-- Toggle button for mode selection -->  
+              <button id="modeButton" class="btn btn-outline-danger w-100" onclick="toggleMode()">🔴 Stop Mode</button>  
+            </div>  
+          </div>  
+
+          <!-- Send Parameters Button -->  
+          <button class="btn btn-primary w-100 mt-2" onclick="sendParams()">🚀 Send Parameters</button>  
+        </div>  
+      </div>  
+    </div>  
+
+    <!-- Right Column: PID Tuning Section -->  
+    <div class="col-md-6">  
+      <div class="card shadow-sm">  
+        <div class="card-body">  
+          <h5 class="card-title">🧠 PID Tuning</h5>  
+
+          <div class="mb-3">  
+            <label class="form-label">Kp (Proportional)</label>  
+            <input type="range" class="form-range" id="kp" min="0" max="1" step="0.01" value="0.05"  
+              oninput="updateSliderValue('kp', this.value)" onmouseup="autoSendIfEnabled()">  
+            <span id="kpValue" class="text-muted">0.05</span>  
+          </div>  
+          <div class="mb-3">  
+            <label class="form-label">Ki (Integral)</label>  
+            <input type="range" class="form-range" id="ki" min="0" max="1" step="0.01" value="0.01"  
+              oninput="updateSliderValue('ki', this.value)" onmouseup="autoSendIfEnabled()">  
+            <span id="kiValue" class="text-muted">0.01</span>  
+          </div>  
+          <div class="mb-3">  
+            <label class="form-label">Kd (Derivative)</label>  
+            <input type="range" class="form-range" id="kd" min="0" max="0.1" step="0.001" value="0.001"  
+              oninput="updateSliderValue('kd', this.value)" onmouseup="autoSendIfEnabled()">  
+            <span id="kdValue" class="text-muted">0.001</span>  
+          </div>  
+        </div>  
+      </div>  
+    </div>  
+  </div>  
+</div>  
+
+<!-- JavaScript Section -->  
+<script>  
+  let mode = 0; // 0: Stop Mode, 1: Work Mode, 2: Debug Mode  
+  let autoSendEnabled = false; // Track auto-send state  
+
+  // Function to toggle mode (Stop → Work → Debug)  
+  function toggleMode() {  
+    mode = (mode + 1) % 3; // Cycle through 0, 1, 2  
+
+    const modeButton = document.getElementById("modeButton");  
+    if (mode === 0) {  
+      // Stop Mode  
+      modeButton.classList.remove("btn-outline-success", "btn-outline-warning");  
+      modeButton.classList.add("btn-outline-danger");  
+      modeButton.textContent = "🔴 Stop Mode";  
+    } else if (mode === 1) {  
+      // Work Mode  
+      modeButton.classList.remove("btn-outline-danger", "btn-outline-warning");  
+      modeButton.classList.add("btn-outline-success");  
+      modeButton.textContent = "🟢 Work Mode";  
+    } else if (mode === 2) {  
+      // Debug Mode  
+      modeButton.classList.remove("btn-outline-danger", "btn-outline-success");  
+      modeButton.classList.add("btn-outline-warning");  
+      modeButton.textContent = "🟡 Debug Mode";  
+    }  
+
+    autoSendIfEnabled(); // Auto send if the mode changes  
+  }  
+
+  // Function to update slider value labels  
+  function updateSliderValue(id, value) {  
+    document.getElementById(`${id}Value`).textContent = value;  
+  }  
+
+  // Function to toggle the auto-send feature  
+  function toggleAutoSend() {  
+    autoSendEnabled = document.getElementById("auto_send").checked;  
+  }  
+
+  // Function to send parameters if auto-send is enabled  
+  function autoSendIfEnabled() {  
+    if (autoSendEnabled) {  
+      sendParams();  
+    }  
+  }  
+
+  // Function to collect parameters and send them to ESP32  
+  function sendParams() {  
+  const server_ip = document.getElementById("server_ip").value;  
+
+  if (!server_ip) {  
+    alert("Please enter a valid Server IP");  
+    return;  
+  }  
+
+  const params = {  
+    target: document.getElementById("target").value,  
+    fps: document.getElementById("fps").value,  
+    alpha: document.getElementById("alpha").value,  
+    max_value: document.getElementById("max_value").value,  
+    max_neg_value: document.getElementById("max_neg_value").value,  
+    kp: document.getElementById("kp").value,  
+    ki: document.getElementById("ki").value,  
+    kd: document.getElementById("kd").value,  
+    mode: mode,  
+  };  
+
+  const queryString = Object.entries(params)  
+    .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)  
+    .join("&");  
+
+  const url = `http://${server_ip}/set?${queryString}`;  
+  const controller = new AbortController();  
+  const timeout = setTimeout(() => controller.abort(), 2000); // 超时设为 2 秒  
+
+  fetch(url, { signal: controller.signal })  
+    .then(response => {  
+      // 清除超时定时器  
+      clearTimeout(timeout);  
+      if (!response.ok) {  
+        throw new Error(`HTTP error! status: ${response.status}`);  
+      }  
+      // return response.text(); // 或者 .json()  
+      return "0";
+    })  
+    .then(data => {  
+      console.log("Response:", data);  
+      alert("Parameters successfully sent!");  
+    })  
+    .catch(error => {  
+      if (error.name === "AbortError") {  
+        console.error("Fetch aborted: Request timeout exceeded.");  
+        alert("Request timed out. Please try again.");  
+      } else {  
+        console.error("Fetch failed:", error);  
+        alert("Failed to send parameters. Please check the server IP and try again.");  
+      }  
+    });  
+}  
+</script>  
+
+</body>  
+</html>  
